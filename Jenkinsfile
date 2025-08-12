@@ -77,12 +77,13 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Docker Login') {
             steps {
                 script {
-                    // Use a temporary Docker config so Jenkins doesn't touch macOS keychain
+                    // Create isolated Docker config to avoid macOS keychain usage
                     sh 'mkdir -p $WORKSPACE/.docker'
+
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
                             export DOCKER_CONFIG=$WORKSPACE/.docker
@@ -98,12 +99,13 @@ pipeline {
                 stage('Push Main App Image') {
                     steps {
                         script {
-                            sh 'export DOCKER_CONFIG=$WORKSPACE/.docker'
-                            docker_push(
-                                imageName: env.DOCKER_IMAGE_NAME,
-                                imageTag: env.DOCKER_IMAGE_TAG,
-                                skipLogin: true
-                            )
+                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker"]) {
+                                docker_push(
+                                    imageName: env.DOCKER_IMAGE_NAME,
+                                    imageTag: env.DOCKER_IMAGE_TAG,
+                                    skipLogin: true
+                                )
+                            }
                         }
                     }
                 }
@@ -111,17 +113,19 @@ pipeline {
                 stage('Push Migration Image') {
                     steps {
                         script {
-                            sh 'export DOCKER_CONFIG=$WORKSPACE/.docker'
-                            docker_push(
-                                imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
-                                imageTag: env.DOCKER_IMAGE_TAG,
-                                skipLogin: true
-                            )
+                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker"]) {
+                                docker_push(
+                                    imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
+                                    imageTag: env.DOCKER_IMAGE_TAG,
+                                    skipLogin: true
+                                )
+                            }
                         }
                     }
                 }
             }
         }
+
         // Add this new stage
         stage('Update Kubernetes Manifests') {
             steps {
