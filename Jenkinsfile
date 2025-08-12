@@ -77,58 +77,73 @@ pipeline {
                 }
             }
         }
-
-        stage('Docker Login') {
-            steps {
-                script {
-                    // Create isolated Docker config (no Keychain helper)
-                    sh '''
-                        mkdir -p $WORKSPACE/.docker
-                        echo '{}' > $WORKSPACE/.docker/config.json
-                    '''
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            export DOCKER_CONFIG=$WORKSPACE/.docker
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                        """
-                    }
-                }
-            }
-        }
-
+        
         stage('Push Docker Images') {
             parallel {
                 stage('Push Main App Image') {
                     steps {
                         script {
-                            sh 'cp -r $WORKSPACE/.docker $WORKSPACE/.docker-main'
-                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker-main"]) {
-                                docker_push(
-                                    imageName: env.DOCKER_IMAGE_NAME,
-                                    imageTag: env.DOCKER_IMAGE_TAG,
-                                    skipLogin: true
-                                )
-                            }
+                            docker_push(
+                                imageName: env.DOCKER_IMAGE_NAME,
+                                imageTag: env.DOCKER_IMAGE_TAG,
+                                credentials: 'docker-hub-credentials'
+                            )
                         }
                     }
                 }
-
+                
                 stage('Push Migration Image') {
                     steps {
                         script {
-                            sh 'cp -r $WORKSPACE/.docker $WORKSPACE/.docker-migration'
-                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker-migration"]) {
-                                docker_push(
-                                    imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
-                                    imageTag: env.DOCKER_IMAGE_TAG,
-                                    skipLogin: true
-                                )
-                            }
+                            docker_push(
+                                imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
+                                imageTag: env.DOCKER_IMAGE_TAG,
+                                credentials: 'docker-hub-credentials'
+                            )
                         }
                     }
                 }
             }
         }
+        // stage('Docker Login') {
+        //     steps {
+        //         script {
+        //             withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+        //                 sh """
+        //                     echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
+
+        // stage('Push Docker Images') {
+        //     parallel {
+        //         stage('Push Main App Image') {
+        //             steps {
+        //                 script {
+        //                     docker_push(
+        //                         imageName: env.DOCKER_IMAGE_NAME,
+        //                         imageTag: env.DOCKER_IMAGE_TAG,
+        //                         skipLogin: true
+        //                     )
+        //                 }
+        //             }
+        //         }
+
+        //         stage('Push Migration Image') {
+        //             steps {
+        //                 script {
+        //                     docker_push(
+        //                         imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
+        //                         imageTag: env.DOCKER_IMAGE_TAG,
+        //                         skipLogin: true
+        //                     )
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
         
         // Add this new stage
         stage('Update Kubernetes Manifests') {
