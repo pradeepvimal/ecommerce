@@ -78,6 +78,45 @@ pipeline {
             }
         }
         
+        // stage('Push Docker Images') {
+        //     parallel {
+        //         stage('Push Main App Image') {
+        //             steps {
+        //                 script {
+        //                     docker_push(
+        //                         imageName: env.DOCKER_IMAGE_NAME,
+        //                         imageTag: env.DOCKER_IMAGE_TAG,
+        //                         credentials: 'docker-hub-credentials'
+        //                     )
+        //                 }
+        //             }
+        //         }
+                
+        //         stage('Push Migration Image') {
+        //             steps {
+        //                 script {
+        //                     docker_push(
+        //                         imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
+        //                         imageTag: env.DOCKER_IMAGE_TAG,
+        //                         credentials: 'docker-hub-credentials'
+        //                     )
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
+        stage('Docker Login') {
+            steps {
+                script {
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                        sh """
+                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
+                        """
+                    }
+                }
+            }
+        }
+
         stage('Push Docker Images') {
             parallel {
                 stage('Push Main App Image') {
@@ -86,19 +125,19 @@ pipeline {
                             docker_push(
                                 imageName: env.DOCKER_IMAGE_NAME,
                                 imageTag: env.DOCKER_IMAGE_TAG,
-                                credentials: 'docker-hub-credentials'
+                                skipLogin: true
                             )
                         }
                     }
                 }
-                
+
                 stage('Push Migration Image') {
                     steps {
                         script {
                             docker_push(
                                 imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
                                 imageTag: env.DOCKER_IMAGE_TAG,
-                                credentials: 'docker-hub-credentials'
+                                skipLogin: true
                             )
                         }
                     }
