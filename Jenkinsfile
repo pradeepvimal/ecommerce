@@ -81,9 +81,11 @@ pipeline {
         stage('Docker Login') {
             steps {
                 script {
-                    // Create isolated Docker config to avoid macOS keychain usage
-                    sh 'mkdir -p $WORKSPACE/.docker'
-
+                    // Create isolated Docker config (no Keychain helper)
+                    sh '''
+                        mkdir -p $WORKSPACE/.docker
+                        echo '{}' > $WORKSPACE/.docker/config.json
+                    '''
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
                         sh """
                             export DOCKER_CONFIG=$WORKSPACE/.docker
@@ -99,7 +101,8 @@ pipeline {
                 stage('Push Main App Image') {
                     steps {
                         script {
-                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker"]) {
+                            sh 'cp -r $WORKSPACE/.docker $WORKSPACE/.docker-main'
+                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker-main"]) {
                                 docker_push(
                                     imageName: env.DOCKER_IMAGE_NAME,
                                     imageTag: env.DOCKER_IMAGE_TAG,
@@ -113,7 +116,8 @@ pipeline {
                 stage('Push Migration Image') {
                     steps {
                         script {
-                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker"]) {
+                            sh 'cp -r $WORKSPACE/.docker $WORKSPACE/.docker-migration'
+                            withEnv(["DOCKER_CONFIG=$WORKSPACE/.docker-migration"]) {
                                 docker_push(
                                     imageName: env.DOCKER_MIGRATION_IMAGE_NAME,
                                     imageTag: env.DOCKER_IMAGE_TAG,
@@ -125,7 +129,7 @@ pipeline {
                 }
             }
         }
-
+        
         // Add this new stage
         stage('Update Kubernetes Manifests') {
             steps {
